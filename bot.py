@@ -14,7 +14,7 @@ from aiogram.types import (
 )
 
 # 🔐 Токен
-TOKEN = os.getenv("TOKEN") or "7597289189:AAHwJUyLM99LIUm6hwFH52dxiO1GtnjPot4"
+TOKEN = os.getenv("TOKEN") or "7597289189:AAEQ6feVesGHMvvOP5lPDHoDkMyVvc29umY"
 
 # 🧠 Логирование
 logging.basicConfig(
