@@ -7,20 +7,13 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    InputMediaPhoto
-)
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 
 # 🔐 Токен
 TOKEN = os.getenv("TOKEN") or "7597289189:AAEQ6feVesGHMvvOP5lPDHoDkMyVvc29umY"
 
 # 🧠 Логирование
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -108,7 +101,6 @@ async def show_catalog(callback: types.CallbackQuery):
 # ---------- Цурикавы ----------
 @dp.callback_query(F.data == "tsurikawa")
 async def show_tsurikawa(callback: types.CallbackQuery):
-    # 🖼 сюда можешь вставить свои ссылки на фото (до 10 штук)
     photos = [
         InputMediaPhoto(media="https://i.postimg.cc/Gm5Q9M64/tsurikawa1.jpg", caption="🌀 Примеры цурикав от undercust"),
         InputMediaPhoto(media="https://i.postimg.cc/hPm3yVvG/tsurikawa2.jpg"),
@@ -117,7 +109,8 @@ async def show_tsurikawa(callback: types.CallbackQuery):
         InputMediaPhoto(media="https://i.postimg.cc/RVqbtPQb/tsurikawa5.jpg"),
     ]
 
-    await callback.message.answer_media_group(photos)
+    # ✅ исправлено: используем send_media_group вместо answer_media_group
+    await bot.send_media_group(chat_id=callback.message.chat.id, media=photos)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="⬅️ Назад к каталогу", callback_data="catalog")]
@@ -253,11 +246,18 @@ async def calc_result(message: types.Message, state: FSMContext):
 # ---------- Назад ----------
 @dp.callback_query(F.data == "back_to_start")
 async def back_to_start(callback: types.CallbackQuery):
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await start(callback.message)
+    await safe_edit_text(
+        callback.message,
+        text=(
+            "Здесь можно:\n"
+            "• посмотреть <b>примеры работ</b>,\n"
+            "• узнать <b>стоимость</b> и <b>доставку</b>,\n"
+            "• задать вопросы или оформить <b>индивидуальный заказ</b>.\n\n"
+            "Выбирай, что интересует 👇"
+        ),
+        parse_mode="HTML",
+        reply_markup=main_menu_kb()
+    )
 
 
 # ---------- Запуск ----------
