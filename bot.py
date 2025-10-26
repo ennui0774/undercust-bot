@@ -10,7 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # 🔐 Токен
-TOKEN = os.getenv("TOKEN") or "7597289189:AAHwJUyLM99LIUm6hwFH52dxiO1GtnjPot4"
+TOKEN = os.getenv("TOKEN") or "7597289189:AAEpOwjiP0ZtrKAOOdGQQ1Dv7C3n8dV8xIc"
 
 # 🧠 Логирование
 logging.basicConfig(
