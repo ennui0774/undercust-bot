@@ -80,10 +80,14 @@ async def safe_edit(message: types.Message, text: str, **kwargs):
 async def show_catalog(callback: types.CallbackQuery):
     text = (
         "📦 <b>Каталог (примеры работ)</b>\n\n"
-        "Выберите категорию изделий 👇"
+        "Выберите категорию изделий или откройте наш альбом VK 👇"
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="📂 Открыть каталог VK",
+            url="https://vk.com/market-227792089?display_albums=true&screen=group"
+        )],
         [InlineKeyboardButton(text="💀 Цурикавы", callback_data="catalog_tsurikawa")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
     ])
@@ -287,8 +291,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    import asyncio
-
     try:
         loop = asyncio.get_event_loop()
         if loop.is_closed():
