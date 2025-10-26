@@ -5,7 +5,7 @@ import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 
 # 🔐 Токен
 TOKEN = os.getenv("TOKEN") or "7597289189:AAEQ6feVesGHMvvOP5lPDHoDkMyVvc29umY"
@@ -17,143 +17,111 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 
-# ---------- Клавиатура ----------
-def main_menu():
+# ---------- Главная клавиатура ----------
+def main_menu_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📦 Каталог (примеры работ)", callback_data="catalog")],
         [
             InlineKeyboardButton(text="💰 Стоимость", callback_data="price"),
-            InlineKeyboardButton(text="🚚 Доставка", callback_data="delivery"),
+            InlineKeyboardButton(text="🚚 Доставка", callback_data="delivery")
         ],
         [InlineKeyboardButton(text="🌐 Другие площадки", callback_data="socials")],
-        [InlineKeyboardButton(text="💬 Связаться с менеджером", url="https://t.me/undercust_shop")]
+        [InlineKeyboardButton(text="💬 Связаться с менеджером", url="https://t.me/undercust_shop?start=bot")]
     ])
 
 
 # ---------- /start ----------
 @dp.message(Command("start"))
-async def start_cmd(msg: types.Message):
-    await msg.answer_photo(
-        "https://i.imgur.com/2vD5Sxg.jpeg",
+async def start(message: types.Message):
+    await message.answer_photo(
+        photo="https://i.postimg.cc/sgCn32q0/photo-2025-10-23-21-02-28.jpg",
         caption=(
             "👋 Привет! Это бот мастерской <b>undercust</b> — место, где кастом становится искусством.\n\n"
             "📢 Наш Telegram-канал: <a href='https://t.me/undercust_tgk'>@undercust_tgk</a>\n"
-            "Там выходят свежие работы, новости и акции ⚙️"
+            "Там выходят свежие работы, новости и акции мастерской ⚙️"
+        ),
+        parse_mode="HTML"
+    )
+    await message.answer(
+        text=(
+            "Здесь можно:\n"
+            "• посмотреть <b>примеры работ</b>,\n"
+            "• узнать <b>стоимость</b> и <b>доставку</b>,\n"
+            "• задать вопросы или оформить <b>индивидуальный заказ</b>.\n\n"
+            "Выбирай, что интересует 👇"
         ),
         parse_mode="HTML",
-    )
-
-    await msg.answer(
-        "Здесь можно:\n"
-        "• посмотреть <b>примеры работ</b>,\n"
-        "• узнать <b>стоимость</b> и <b>доставку</b>,\n"
-        "• оформить <b>индивидуальный заказ</b>.\n\n"
-        "Выбирай, что интересует 👇",
-        parse_mode="HTML",
-        reply_markup=main_menu(),
+        reply_markup=main_menu_kb()
     )
 
 
 # ---------- Каталог ----------
 @dp.callback_query(F.data == "catalog")
-async def show_catalog(cb: types.CallbackQuery):
+async def show_catalog(callback: types.CallbackQuery):
     text = (
         "📦 <b>Каталог (примеры работ)</b>\n\n"
         "Некоторые изделия мастерской — чтобы показать стиль и возможности.\n\n"
         "Ниже можно открыть каталог или посмотреть цурикавы прямо здесь 👇"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📂 Каталог VK", url="https://vk.com/market-227792089?display_albums=true")],
+        [InlineKeyboardButton(text="📂 Каталог VK", url="https://vk.com/market-227792089?display_albums=true&screen=group")],
         [InlineKeyboardButton(text="🌀 Цурикавы", callback_data="tsurikawa")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_start")]
+        [InlineKeyboardButton(text="🚗 Моей марки нет в каталоге", callback_data="no_brand")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
     ])
-    await cb.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
 
 
 # ---------- Цурикавы ----------
 @dp.callback_query(F.data == "tsurikawa")
-async def show_tsurikawa(cb: types.CallbackQuery):
-    # стабильные картинки с imgur
+async def show_tsurikawa(callback: types.CallbackQuery):
+    # 🖼 Фото с Яндекс.Диска (пример — вставь свои)
     photos = [
-        "https://i.imgur.com/sYqv6Cj.jpg",
-        "https://i.imgur.com/Y4XZNyC.jpg",
-        "https://i.imgur.com/3lG0ehB.jpg",
-        "https://i.imgur.com/Gn5CVkU.jpg",
+        InputMediaPhoto(media="https://i.postimg.cc/Gm5Q9M64/tsurikawa1.jpg", caption="🌀 Примеры цурикав от undercust"),
+        InputMediaPhoto(media="https://i.postimg.cc/hPm3yVvG/tsurikawa2.jpg"),
+        InputMediaPhoto(media="https://i.postimg.cc/ncTsg7ps/tsurikawa3.jpg"),
+        InputMediaPhoto(media="https://i.postimg.cc/mD3gWMSs/tsurikawa4.jpg"),
+        InputMediaPhoto(media="https://i.postimg.cc/RVqbtPQb/tsurikawa5.jpg"),
     ]
 
-    await cb.message.edit_text("🌀 <b>Примеры цурикав от undercust:</b>", parse_mode="HTML")
-    for url in photos:
-        try:
-            await bot.send_photo(cb.message.chat.id, url)
-            await asyncio.sleep(0.4)
-        except Exception as e:
-            logging.error(f"Ошибка при фото {url}: {e}")
-            await bot.send_message(cb.message.chat.id, f"⚠️ Не удалось загрузить фото: {url}")
+    # Отправляем все фото как альбом
+    try:
+        await bot.send_media_group(chat_id=callback.message.chat.id, media=photos)
+    except Exception as e:
+        logging.error(f"Ошибка при загрузке фото: {e}")
+        await callback.message.answer("⚠️ Не удалось загрузить фото. Попробуйте позже.")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад в каталог", callback_data="catalog")]
+        [InlineKeyboardButton(text="⬅️ Назад к каталогу", callback_data="catalog")]
     ])
     await bot.send_message(
-        cb.message.chat.id,
-        "💎 <b>Цурикавы</b> — стильный акриловый аксессуар для автомобиля.\n\n"
-        "• Цена: <b>1800 ₽</b>\n"
-        "• Материалы: зеркальный и матовый акрил\n"
-        "• Толщина: 6 мм\n"
-        "• Изготовление до 10 раб. дней\n\n"
-        "👇 Вернуться в каталог можно ниже:",
+        chat_id=callback.message.chat.id,
+        text=(
+            "💎 <b>Цурикавы</b> — стильный акриловый аксессуар для автомобиля.\n\n"
+            "• Цена: <b>1800 ₽</b>\n"
+            "• Материалы: зеркальный и матовый акрил\n"
+            "• Толщина: 6 мм\n"
+            "• Изготовление до 10 рабочих дней\n\n"
+            "👇 Вернуться в каталог можно ниже:"
+        ),
         parse_mode="HTML",
-        reply_markup=kb,
-    )
-
-
-# ---------- Стоимость ----------
-@dp.callback_query(F.data == "price")
-async def price(cb: types.CallbackQuery):
-    await cb.message.edit_text(
-        "💰 <b>Стоимость изделий</b>\n\n"
-        "Эмблемы — 1200–2000 ₽\n"
-        "Цурикавы — 1800 ₽\n"
-        "Брелки — 800 ₽\n"
-        "Подвески — 1400 ₽\n"
-        "Колпачки — 1400 ₽ (комплект)\n"
-        "Шильдики / надписи — от 800 ₽\n\n"
-        "Для точного расчёта напишите менеджеру: @undercust_shop",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_start")]
-        ])
-    )
-
-
-# ---------- Доставка ----------
-@dp.callback_query(F.data == "delivery")
-async def delivery(cb: types.CallbackQuery):
-    await cb.message.edit_text(
-        "🚚 <b>Доставка</b>\n\n"
-        "📦 По России:\n"
-        "• СДЭК — от 350 ₽\n"
-        "• Яндекс.Доставка — от 300 ₽\n"
-        "• Ozon Посылка — 99 ₽ 🎯\n\n"
-        "🌍 В страны СНГ — СДЭК (от 700 ₽ / 10–25 дней)\n\n"
-        "Отправка из Великого Новгорода.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_start")]
-        ])
+        reply_markup=kb
     )
 
 
 # ---------- Назад ----------
-@dp.callback_query(F.data == "back_start")
-async def back_start(cb: types.CallbackQuery):
-    await cb.message.edit_text(
-        "Здесь можно:\n"
-        "• посмотреть <b>примеры работ</b>,\n"
-        "• узнать <b>стоимость</b> и <b>доставку</b>,\n"
-        "• оформить <b>индивидуальный заказ</b>.\n\n"
-        "Выбирай, что интересует 👇",
+@dp.callback_query(F.data == "back_to_start")
+async def back_to_start(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        text=(
+            "Здесь можно:\n"
+            "• посмотреть <b>примеры работ</b>,\n"
+            "• узнать <b>стоимость</b> и <b>доставку</b>,\n"
+            "• задать вопросы или оформить <b>индивидуальный заказ</b>.\n\n"
+            "Выбирай, что интересует 👇"
+        ),
         parse_mode="HTML",
-        reply_markup=main_menu(),
+        reply_markup=main_menu_kb()
     )
 
 
@@ -161,11 +129,8 @@ async def back_start(cb: types.CallbackQuery):
 async def main():
     logging.info("Бот запускается...")
     await bot.delete_webhook(drop_pending_updates=True)
-    try:
-        await dp.start_polling(bot)
-    except Exception as e:
-        logging.error(f"Ошибка запуска: {e}")
-        await bot.session.close()
+    await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
