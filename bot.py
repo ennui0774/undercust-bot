@@ -7,7 +7,11 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    InputMediaPhoto
+)
 
 # 🔐 Токен
 TOKEN = os.getenv("TOKEN") or "7597289189:AAHwJUyLM99LIUm6hwFH52dxiO1GtnjPot4"
@@ -27,7 +31,7 @@ class DeliveryCalc(StatesGroup):
     waiting_for_city = State()
 
 
-# ---------- Главное меню ----------
+# ---------- Главная клавиатура ----------
 def main_menu_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📦 Каталог (примеры работ)", callback_data="catalog")],
@@ -36,7 +40,8 @@ def main_menu_kb():
             InlineKeyboardButton(text="🚚 Доставка", callback_data="delivery")
         ],
         [InlineKeyboardButton(text="❓ Часто задаваемые вопросы", callback_data="faq_menu")],
-        [InlineKeyboardButton(text="💬 Связаться с менеджером", url="https://t.me/undercust_shop")]
+        [InlineKeyboardButton(text="🌐 Другие площадки", callback_data="socials")],
+        [InlineKeyboardButton(text="💬 Связаться с менеджером", url="https://t.me/undercust_shop?start=bot")]
     ])
 
 
@@ -51,8 +56,15 @@ async def start(message: types.Message):
     await message.answer_photo(
         photo="https://i.postimg.cc/sgCn32q0/photo-2025-10-23-21-02-28.jpg",
         caption=(
-            "👋 Привет!\n"
-            "Это бот мастерской <b>undercust</b> — место, где кастом становится искусством.\n\n"
+            "👋 Привет! Это бот мастерской <b>undercust</b> — место, где кастом становится искусством.\n\n"
+            "📢 Наш Telegram-канал: <a href='https://t.me/undercust_tgk'>@undercust_tgk</a>\n"
+            "Там выходят свежие работы, новости и акции мастерской ⚙️"
+        ),
+        parse_mode="HTML"
+    )
+
+    await message.answer(
+        text=(
             "Здесь можно:\n"
             "• посмотреть <b>примеры работ</b>,\n"
             "• узнать <b>стоимость</b> и <b>доставку</b>,\n"
@@ -65,12 +77,13 @@ async def start(message: types.Message):
 
 
 # ---------- Безопасное редактирование ----------
-async def safe_edit(message: types.Message, text: str, **kwargs):
+async def safe_edit_text(message: types.Message, text: str, **kwargs):
     try:
-        if message.photo:
-            await message.edit_caption(caption=text, **kwargs)
+        if getattr(message, "photo", None):
+            await message.delete()
+            await message.answer(text, **kwargs)
         else:
-            await message.edit_text(text=text, **kwargs)
+            await message.edit_text(text, **kwargs)
     except Exception:
         await message.answer(text, **kwargs)
 
@@ -80,116 +93,59 @@ async def safe_edit(message: types.Message, text: str, **kwargs):
 async def show_catalog(callback: types.CallbackQuery):
     text = (
         "📦 <b>Каталог (примеры работ)</b>\n\n"
-        "Выберите категорию изделий или откройте наш альбом VK 👇"
+        "Некоторые изделия мастерской — чтобы показать стиль и возможности.\n\n"
+        "Ниже можно открыть каталог или посмотреть цурикавы прямо здесь 👇"
     )
-
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="📂 Открыть каталог VK",
-            url="https://vk.com/market-227792089?display_albums=true&screen=group"
-        )],
-        [InlineKeyboardButton(text="💀 Цурикавы", callback_data="catalog_tsurikawa")],
+        [InlineKeyboardButton(text="📂 Каталог VK", url="https://vk.com/market-227792089?display_albums=true&screen=group")],
+        [InlineKeyboardButton(text="🌀 Цурикавы", callback_data="tsurikawa")],
+        [InlineKeyboardButton(text="🚗 Моей марки нет в каталоге", callback_data="no_brand")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
     ])
-
-    await safe_edit(callback.message, text, parse_mode="HTML", reply_markup=kb)
+    await safe_edit_text(callback.message, text, parse_mode="HTML", reply_markup=kb)
 
 
 # ---------- Цурикавы ----------
-@dp.callback_query(F.data == "catalog_tsurikawa")
-async def show_tsurikawas(callback: types.CallbackQuery):
-    text = (
-        "💀 <b>Цурикавы</b>\n\n"
-        "Каждая выполнена из акрила, с возможностью выбора цветов.\n"
-        "⚠️ Предназначены только для использования в салоне — не из ударопрочного материала."
-    )
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👹 Демон Они — 1800 ₽", callback_data="tsurikawa_oni")],
-        [InlineKeyboardButton(text="💜 Сердце с рогами (гравировка) — 1600 ₽", callback_data="tsurikawa_heart")],
-        [InlineKeyboardButton(text="🦋 Бабочка — 1800 ₽", callback_data="tsurikawa_butterfly")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="catalog")]
-    ])
-
-    await safe_edit(callback.message, text, parse_mode="HTML", reply_markup=kb)
-
-
-# ---------- Они ----------
-@dp.callback_query(F.data == "tsurikawa_oni")
-async def show_tsurikawa_oni(callback: types.CallbackQuery):
+@dp.callback_query(F.data == "tsurikawa")
+async def show_tsurikawa(callback: types.CallbackQuery):
+    # 🖼 сюда можешь вставить свои ссылки на фото (до 10 штук)
     photos = [
-        "https://disk.yandex.ru/i/W5uiIGsrRCuuVw",
-        "https://disk.yandex.ru/i/QbQNT-ATOz-c3A",
-        "https://disk.yandex.ru/i/ApAsbNGD5crP5g",
-        "https://disk.yandex.ru/i/6QxDkQCR4B0ETw"
+        InputMediaPhoto(media="https://i.postimg.cc/Gm5Q9M64/tsurikawa1.jpg", caption="🌀 Примеры цурикав от undercust"),
+        InputMediaPhoto(media="https://i.postimg.cc/hPm3yVvG/tsurikawa2.jpg"),
+        InputMediaPhoto(media="https://i.postimg.cc/ncTsg7ps/tsurikawa3.jpg"),
+        InputMediaPhoto(media="https://i.postimg.cc/mD3gWMSs/tsurikawa4.jpg"),
+        InputMediaPhoto(media="https://i.postimg.cc/RVqbtPQb/tsurikawa5.jpg"),
     ]
-    for link in photos:
-        await bot.send_photo(callback.message.chat.id, photo=link)
 
-    text = (
-        "👹 <b>Цурикава «Демон Они»</b>\n\n"
-        "Цена: 1800 ₽\n"
-        "Можно выбрать цвета акрила.\n"
-        "⚠️ Только для использования в салоне."
-    )
+    await callback.message.answer_media_group(photos)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад к цурикавам", callback_data="catalog_tsurikawa")],
-        [InlineKeyboardButton(text="💬 Заказать", url="https://t.me/undercust_shop")]
+        [InlineKeyboardButton(text="⬅️ Назад к каталогу", callback_data="catalog")]
     ])
-
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
-
-
-# ---------- Сердце ----------
-@dp.callback_query(F.data == "tsurikawa_heart")
-async def show_tsurikawa_heart(callback: types.CallbackQuery):
-    photos = [
-        "https://disk.yandex.ru/i/8QT9IeO9fdVEsA",
-        "https://disk.yandex.ru/i/luJokqiCeM20aw"
-    ]
-    for link in photos:
-        await bot.send_photo(callback.message.chat.id, photo=link)
-
-    text = (
-        "💜 <b>Цурикава «Сердце с рогами»</b>\n\n"
-        "Цена: 1600 ₽\n"
-        "С лазерной гравировкой и возможностью смены цветов.\n"
-        "⚠️ Только для использования в салоне."
+    await callback.message.answer(
+        "💎 <b>Цурикавы</b> — стильный акриловый аксессуар для автомобиля.\n\n"
+        "• Цена: <b>1800 ₽</b>\n"
+        "• Материалы: зеркальный и матовый акрил\n"
+        "• Толщина: 6 мм\n"
+        "• Изготовление до 10 рабочих дней\n\n"
+        "👇 Вернуться в каталог можно ниже:",
+        parse_mode="HTML",
+        reply_markup=kb
     )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад к цурикавам", callback_data="catalog_tsurikawa")],
-        [InlineKeyboardButton(text="💬 Заказать", url="https://t.me/undercust_shop")]
-    ])
 
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
-
-
-# ---------- Бабочка ----------
-@dp.callback_query(F.data == "tsurikawa_butterfly")
-async def show_tsurikawa_butterfly(callback: types.CallbackQuery):
-    photos = [
-        "https://disk.yandex.ru/i/SnWR-phg5zUJww",
-        "https://disk.yandex.ru/i/lwE19C7SL4OrIg",
-        "https://disk.yandex.ru/i/R0PHB8mjhtNKSQ"
-    ]
-    for link in photos:
-        await bot.send_photo(callback.message.chat.id, photo=link)
-
+# ---------- Моей марки нет ----------
+@dp.callback_query(F.data == "no_brand")
+async def no_brand(callback: types.CallbackQuery):
     text = (
-        "🦋 <b>Цурикава «Бабочка»</b>\n\n"
-        "Цена: 1800 ₽\n"
-        "Можно выбрать цвета акрила.\n"
-        "⚠️ Только для использования в салоне."
+        "⚙️ <b>В разработке:</b> Renault, Daihatsu, Peugeot, Alfa Romeo, Cadillac.\n\n"
+        "❌ <b>Пока нет:</b> Porsche, Genesis, Dodge, Chrysler, Jeep, Tesla, Citroën, Lancia, Ferrari, "
+        "Lamborghini, Maserati, Mini, Land Rover, Range Rover, Jaguar, Aston Martin, Bentley, Rolls-Royce, "
+        "Chery, Geely, Haval, Exeed, Great Wall, JAC, Omoda, Changan, Москвич, УАЗ, Volvo, Saab.\n\n"
+        "💎 Со временем список будет пополняться."
     )
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад к цурикавам", callback_data="catalog_tsurikawa")],
-        [InlineKeyboardButton(text="💬 Заказать", url="https://t.me/undercust_shop")]
-    ])
-
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="catalog")]])
+    await safe_edit_text(callback.message, text, parse_mode="HTML", reply_markup=kb)
 
 
 # ---------- Стоимость ----------
@@ -197,18 +153,20 @@ async def show_tsurikawa_butterfly(callback: types.CallbackQuery):
 async def show_price(callback: types.CallbackQuery):
     text = (
         "💰 <b>Стоимость изделий</b>\n\n"
-        "• Эмблемы — 1800 ₽ (возможны исключения)\n"
-        "• Цурикавы — от 1600 ₽ до 1800 ₽\n"
+        "🔷 <b>Эмблемы</b>\n"
+        "• Маленькие — <b>1200–1600 ₽</b>\n"
+        "• Стандартные — <b>1800 ₽</b>\n"
+        "• Большие / сложные — <b>от 2000 ₽</b>\n\n"
+        "🔶 <b>Другие изделия</b>\n"
+        "• Цурикавы — 1800 ₽\n"
         "• Брелки — 800 ₽\n"
         "• Подвески — 1400 ₽\n"
-        "• Колпачки — 1400 ₽\n"
-        "• Шильдики / надписи — от 800 ₽ (зависит от размеров)\n\n"
-        "Для уточнения — @undercust_shop 💬"
+        "• Колпачки — 1400 ₽ (комплект)\n"
+        "• Шильдики / надписи — от 800 ₽ (зависит от размеров и сложности)\n\n"
+        "Для точного расчёта по вашей модели — напишите менеджеру: @undercust_shop 💬"
     )
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
-    ])
-    await safe_edit(callback.message, text, parse_mode="HTML", reply_markup=kb)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]])
+    await safe_edit_text(callback.message, text, parse_mode="HTML", reply_markup=kb)
 
 
 # ---------- Доставка ----------
@@ -221,53 +179,75 @@ async def show_delivery(callback: types.CallbackQuery):
         "• Яндекс.Доставка — дешевле, но чуть дольше\n"
         "• Ozon Посылка — акция 99 ₽ 🎯\n\n"
         "<b>🌍 В страны СНГ:</b> только СДЭК — от 700 ₽ / 10–25 дней\n\n"
-        "Отправка из Великого Новгорода."
+        "Отправка из Великого Новгорода.\n"
+        "👇 Можно рассчитать стоимость:"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📦 Рассчитать доставку", callback_data="calc_delivery")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
     ])
-    await safe_edit(callback.message, text, parse_mode="HTML", reply_markup=kb)
+    await safe_edit_text(callback.message, text, parse_mode="HTML", reply_markup=kb)
 
 
-# ---------- FAQ ----------
-@dp.callback_query(F.data == "faq_menu")
-async def faq_menu(callback: types.CallbackQuery):
-    text = "❓ <b>Часто задаваемые вопросы</b>\n\n👇 Выберите интересующий вопрос:"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛠 Как оформить заказ", callback_data="faq_order")],
-        [InlineKeyboardButton(text="📎 Крепление эмблемы", callback_data="faq_mount")],
-        [InlineKeyboardButton(text="🎨 Индивидуальный дизайн", callback_data="faq_design")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
-    ])
-    await safe_edit(callback.message, text, parse_mode="HTML", reply_markup=kb)
+# ---------- Рассчитать доставку ----------
+@dp.callback_query(F.data == "calc_delivery")
+async def ask_city(callback: types.CallbackQuery, state: FSMContext):
+    text = "Введите ваш город или страну.\nОтправка осуществляется из Великого Новгорода:"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_to_start")]])
+    await safe_edit_text(callback.message, text, reply_markup=kb)
+    await state.set_state(DeliveryCalc.waiting_for_city)
 
 
-faq_answers = {
-    "faq_order": (
-        "🛠 <b>Как оформить заказ?</b>\n\n"
-        "Можно выбрать готовый дизайн или заказать индивидуальный.\n"
-        "После согласования макета уточняем детали, беру предоплату и запускаю в работу."
-    ),
-    "faq_mount": (
-        "📎 <b>Как крепится эмблема?</b>\n\n"
-        "На заднюю поверхность наносится прочный 3М-скотч.\n"
-        "Перед установкой очистите и обезжирьте поверхность."
-    ),
-    "faq_design": (
-        "🎨 <b>Можно ли сделать индивидуальный дизайн?</b>\n\n"
-        "Да! Напишите менеджеру 👉 <a href='https://t.me/undercust_shop'>@undercust_shop</a>"
+# ---------- Приём города ----------
+@dp.message(DeliveryCalc.waiting_for_city)
+async def calc_result(message: types.Message, state: FSMContext):
+    city = message.text.strip().lower()
+    near = ["москва", "санкт", "питер", "псков", "тверь", "новгород"]
+    mid = ["казань", "нижний", "самара", "екатеринбург", "челябинск", "воронеж", "ростов"]
+    far = ["владивосток", "хабаровск", "камчат", "петропавловск", "иркутск", "омск", "красноярск", "новосибирск"]
+    cis = [
+        "казахстан", "астана", "алматы", "караганда", "беларусь", "минск", "гомель",
+        "армения", "ереван", "киргиз", "бишкек", "грузия", "тбилиси", "узбекистан", "ташкент",
+        "таджикистан", "душанбе", "азербайджан", "баку"
+    ]
+
+    if any(w in city for w in cis):
+        region = "Страны СНГ"
+        sdek = "СДЭК — от 700 ₽ / 10–25 дней"
+        yandex = "Яндекс.Доставка — недоступна"
+        ozon = "Ozon Посылка — недоступна"
+    elif any(w in city for w in near):
+        region = "Ближний регион"
+        sdek = "СДЭК 350–400 ₽ / 1–3 дня"
+        yandex = "Яндекс 300–400 ₽ / 2–4 дня"
+        ozon = "Ozon 99–300 ₽ / 3–5 дней"
+    elif any(w in city for w in mid):
+        region = "Среднее расстояние"
+        sdek = "СДЭК 450–650 ₽ / 3–7 дней"
+        yandex = "Яндекс 400–600 ₽ / 4–8 дней"
+        ozon = "Ozon 200–400 ₽ / 5–9 дней"
+    elif any(w in city for w in far):
+        region = "Дальний регион"
+        sdek = "СДЭК 700–950 ₽ / 15–30 дней"
+        yandex = "Яндекс 600–850 ₽ / 20–35 дней"
+        ozon = "Ozon 400–700 ₽ / 25–40 дней"
+    else:
+        region = "Регион не определён точно"
+        sdek = "СДЭК от 400 ₽ / 3–10 дней"
+        yandex = "Яндекс от 350 ₽ / 4–10 дней"
+        ozon = "Ozon от 150 ₽ / 5–12 дней"
+
+    await message.answer(
+        f"📦 <b>Расчёт для:</b> {message.text.strip().title()}\n\n"
+        f"Отправка — из Великого Новгорода\n\n"
+        f"<b>{region}</b>\n\n{sdek}\n{yandex}\n{ozon}\n\n"
+        "Цены и сроки ориентировочные и могут отличаться.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="⬅️ В меню", callback_data="back_to_start")]]
+        )
     )
-}
-
-
-@dp.callback_query(F.data.in_(faq_answers.keys()))
-async def show_faq_answer(callback: types.CallbackQuery):
-    answer = faq_answers[callback.data]
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад к вопросам", callback_data="faq_menu")],
-        [InlineKeyboardButton(text="⬅️ В меню", callback_data="back_to_start")]
-    ])
-    await safe_edit(callback.message, answer, parse_mode="HTML", reply_markup=kb)
+    await state.clear()
 
 
 # ---------- Назад ----------
@@ -283,28 +263,9 @@ async def back_to_start(callback: types.CallbackQuery):
 # ---------- Запуск ----------
 async def main():
     logging.info("Бот запускается...")
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-    except Exception as e:
-        logging.warning(f"Не удалось удалить webhook: {e}")
+    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(main())
-    except (KeyboardInterrupt, SystemExit):
-        logging.info("Бот остановлен вручную.")
-
-
-
-
+    asyncio.run(main())
