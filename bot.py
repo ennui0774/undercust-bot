@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# # -*- coding: utf-8 -*-
 import asyncio
 import logging
 import os
@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # 🔐 Токен
 TOKEN = os.getenv("TOKEN") or "7597289189:AAEQ6feVesGHMvvOP5lPDHoDkMyVvc29umY"
@@ -46,7 +46,6 @@ async def start(message: types.Message):
     except Exception:
         pass
 
-    # Отправляем фото только один раз
     await message.answer_photo(
         photo="https://i.postimg.cc/sgCn32q0/photo-2025-10-23-21-02-28.jpg",
         caption=(
@@ -57,7 +56,6 @@ async def start(message: types.Message):
         parse_mode="HTML"
     )
 
-    # Главное меню отдельно
     await message.answer(
         "Здесь можно:\n"
         "• посмотреть <b>примеры работ</b>,\n"
@@ -98,19 +96,22 @@ async def show_catalog(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "tsurikawa")
 async def show_tsurikawa(callback: types.CallbackQuery):
     photos = [
-        InputMediaPhoto(media="https://i.postimg.cc/Gm5Q9M64/tsurikawa1.jpg", caption="🌀 Примеры цурикав от undercust"),
-        InputMediaPhoto(media="https://i.postimg.cc/hPm3yVvG/tsurikawa2.jpg"),
-        InputMediaPhoto(media="https://i.postimg.cc/ncTsg7ps/tsurikawa3.jpg"),
-        InputMediaPhoto(media="https://i.postimg.cc/mD3gWMSs/tsurikawa4.jpg"),
-        InputMediaPhoto(media="https://i.postimg.cc/RVqbtPQb/tsurikawa5.jpg"),
+        "https://i.postimg.cc/Gm5Q9M64/tsurikawa1.jpg",
+        "https://i.postimg.cc/hPm3yVvG/tsurikawa2.jpg",
+        "https://i.postimg.cc/ncTsg7ps/tsurikawa3.jpg",
+        "https://i.postimg.cc/mD3gWMSs/tsurikawa4.jpg",
+        "https://i.postimg.cc/RVqbtPQb/tsurikawa5.jpg",
     ]
 
-    try:
-        await bot.send_media_group(chat_id=callback.message.chat.id, media=photos)
-    except Exception as e:
-        await callback.message.answer("⚠️ Не удалось загрузить альбом. Попробуйте ещё раз чуть позже.")
-        logging.error(f"Ошибка при отправке цурикав: {e}")
-        return
+    await callback.message.answer("🌀 Примеры цурикав от undercust:")
+
+    for url in photos:
+        try:
+            await bot.send_photo(chat_id=callback.message.chat.id, photo=url)
+            await asyncio.sleep(0.3)
+        except Exception as e:
+            await callback.message.answer(f"⚠️ Не удалось загрузить фото: {url}")
+            logging.error(f"Ошибка при загрузке {url}: {e}")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="⬅️ Назад к каталогу", callback_data="catalog")]
@@ -159,6 +160,87 @@ async def show_price(callback: types.CallbackQuery):
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]])
     await safe_edit_text(callback.message, text, parse_mode="HTML", reply_markup=kb)
+
+
+# ---------- Доставка ----------
+@dp.callback_query(F.data == "delivery")
+async def show_delivery(callback: types.CallbackQuery):
+    text = (
+        "🚚 <b>Доставка</b>\n\n"
+        "<b>📦 По России:</b>\n"
+        "• СДЭК — от 350 ₽ (быстро)\n"
+        "• Яндекс.Доставка — дешевле, но чуть дольше\n"
+        "• Ozon Посылка — акция 99 ₽ 🎯\n\n"
+        "<b>🌍 В страны СНГ:</b> только СДЭК — от 700 ₽ / 10–25 дней\n\n"
+        "Отправка из Великого Новгорода.\n"
+        "👇 Можно рассчитать стоимость:"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📦 Рассчитать доставку", callback_data="calc_delivery")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")]
+    ])
+    await safe_edit_text(callback.message, text, parse_mode="HTML", reply_markup=kb)
+
+
+# ---------- Рассчитать доставку ----------
+@dp.callback_query(F.data == "calc_delivery")
+async def ask_city(callback: types.CallbackQuery, state: FSMContext):
+    text = "Введите ваш город или страну.\nОтправка осуществляется из Великого Новгорода:"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Отмена", callback_data="back_to_start")]])
+    await safe_edit_text(callback.message, text, reply_markup=kb)
+    await state.set_state(DeliveryCalc.waiting_for_city)
+
+
+# ---------- Приём города ----------
+@dp.message(DeliveryCalc.waiting_for_city)
+async def calc_result(message: types.Message, state: FSMContext):
+    city = message.text.strip().lower()
+    near = ["москва", "санкт", "питер", "псков", "тверь", "новгород"]
+    mid = ["казань", "нижний", "самара", "екатеринбург", "челябинск", "воронеж", "ростов"]
+    far = ["владивосток", "хабаровск", "камчат", "петропавловск", "иркутск", "омск", "красноярск", "новосибирск"]
+    cis = [
+        "казахстан", "астана", "алматы", "караганда", "беларусь", "минск", "гомель",
+        "армения", "ереван", "киргиз", "бишкек", "грузия", "тбилиси", "узбекистан", "ташкент",
+        "таджикистан", "душанбе", "азербайджан", "баку"
+    ]
+
+    if any(w in city for w in cis):
+        region = "Страны СНГ"
+        sdek = "СДЭК — от 700 ₽ / 10–25 дней"
+        yandex = "Яндекс.Доставка — недоступна"
+        ozon = "Ozon Посылка — недоступна"
+    elif any(w in city for w in near):
+        region = "Ближний регион"
+        sdek = "СДЭК 350–400 ₽ / 1–3 дня"
+        yandex = "Яндекс 300–400 ₽ / 2–4 дня"
+        ozon = "Ozon 99–300 ₽ / 3–5 дней"
+    elif any(w in city for w in mid):
+        region = "Среднее расстояние"
+        sdek = "СДЭК 450–650 ₽ / 3–7 дней"
+        yandex = "Яндекс 400–600 ₽ / 4–8 дней"
+        ozon = "Ozon 200–400 ₽ / 5–9 дней"
+    elif any(w in city for w in far):
+        region = "Дальний регион"
+        sdek = "СДЭК 700–950 ₽ / 15–30 дней"
+        yandex = "Яндекс 600–850 ₽ / 20–35 дней"
+        ozon = "Ozon 400–700 ₽ / 25–40 дней"
+    else:
+        region = "Регион не определён точно"
+        sdek = "СДЭК от 400 ₽ / 3–10 дней"
+        yandex = "Яндекс от 350 ₽ / 4–10 дней"
+        ozon = "Ozon от 150 ₽ / 5–12 дней"
+
+    await message.answer(
+        f"📦 <b>Расчёт для:</b> {message.text.strip().title()}\n\n"
+        f"Отправка — из Великого Новгорода\n\n"
+        f"<b>{region}</b>\n\n{sdek}\n{yandex}\n{ozon}\n\n"
+        "Цены и сроки ориентировочные и могут отличаться.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="⬅️ В меню", callback_data="back_to_start")]]
+        )
+    )
+    await state.clear()
 
 
 # ---------- Назад ----------
