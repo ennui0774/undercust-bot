@@ -8,6 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramConflictError
 
 # 🔐 Токен
 TOKEN = os.getenv("TOKEN") or "7597289189:AAFxpew7hKcxO9xLOUCOkAxmJa5zUqntlLM"
@@ -330,23 +331,24 @@ async def back_to_start(callback: types.CallbackQuery):
 async def main():
     logging.info("Бот запускается...")
     try:
-        await bot.delete_webhook(drop_pending_updates=True)
+        webhook_info = await bot.get_webhook_info()
+        if webhook_info.url:
+            logging.warning(f"Найден активный webhook: {webhook_info.url} — удаляю...")
+            await bot.delete_webhook(drop_pending_updates=True)
+            await asyncio.sleep(1)
     except Exception as e:
-        logging.warning(f"Не удалось удалить webhook: {e}")
-    await dp.start_polling(bot)
+        logging.warning(f"Ошибка при проверке webhook: {e}")
+
+    while True:
+        try:
+            await dp.start_polling(bot)
+        except TelegramConflictError:
+            logging.warning("Обнаружен конфликт polling — жду 10 секунд и пробую снова...")
+            await asyncio.sleep(10)
+        except Exception as e:
+            logging.error(f"Ошибка в polling: {e}")
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(main())
-    except (KeyboardInterrupt, SystemExit):
-        logging.info("Бот остановлен вручную.")
+    asyncio.run(main())
